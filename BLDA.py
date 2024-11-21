@@ -159,11 +159,7 @@ def interp1d(x, y, x_new,ratio):
   
     x_new =  torch.clamp(x_new ,min=ratio,max=1-ratio)
     indices = torch.searchsorted(x, x_new)
-    # indices_right = torch.searchsorted(x, x_new,right= True)
-    
-
     indices = torch.clamp(indices, min = 1, max = len(x)-1)
-    # indices_right = torch.clamp(indices_right, min = 1, max = len(x)-1)
 
     x_left = x[indices - 1]
     x_right = x[indices]
@@ -222,12 +218,10 @@ class GaussianMixtureModel1d:
         
         posteriors  = self.weights.unsqueeze(-2)*self._multivariate_normal(data, self.means, self.covariances) #shape，num_samples，num_components
         posteriors += 1e-7 # avoid NAN
-        # posteriors = torch.clip(posteriors,min = 1e-7, max=None) # avoid NAN
         
         # # Normalize the posterior probabilities
         # print( torch.min(posteriors ),torch.max(posteriors))
         posteriors /= torch.sum(posteriors, -1, keepdims=True)
-        # print("1", torch.min(posteriors ),torch.max(posteriors))
         return posteriors
 
     def _maximization(self, data, posteriors):
@@ -238,8 +232,6 @@ class GaussianMixtureModel1d:
         self.weights = total_posteriors / num_samples #shape，num_components
         # print( torch.min(self.weights ),torch.max(self.weights))
         
-        # # avid divided by zero
-        # total_posteriors = torch.clamp(total_posteriors,min=1e-4)
         
         # update means
         self.means = torch.sum(posteriors*data.unsqueeze(-1),-2) / total_posteriors
@@ -267,16 +259,12 @@ class GaussianMixtureModel1d:
         self.means_pre = self.means.clone()
         self.weights_pre = self.weights.clone()
         self.covariances_pre = self.covariances.clone()
-        # self.means_pre = self.means
-        # self.weights_pre = self.weights
-        # self.covariances_pre = self.covariances
+      
         
     def EMA_updata_weight(self,mask,w=1):
         self.updated_mask += mask
         mask = mask.unsqueeze(-1)
-        # print(w)
         tau = self.tau*min(self.i/self.warmup,1)
-        # tau = min(1 - 1 / (self.i + 1), self.tau)
         tau = torch.pow(tau,self.noupdated_mask)
         # print(torch.max(tau),torch.min(tau))
         self.weights = w*mask*(tau*self.weights_pre+(1-tau)*self.weights) + (1-w*mask)*self.weights_pre
@@ -500,15 +488,12 @@ class CrossEntropyLoss_BLDA(nn.Module):
             y = torch.sum(weights*approx_normal_cdf(y ),1)
             # Create an interpolation function
             logits_neg_gt = interp1d(y, x, cdf,self.ratio)      
-            # print("neg",torch.max(cdf[neg_mask*cdf_mask]),torch.min(cdf[neg_mask*cdf_mask]),torch.mean(cdf[neg_mask*cdf_mask]))
-            # print(torch.max(logits_neg_gt[neg_mask*cdf_mask]),torch.min(logits_neg_gt[neg_mask*cdf_mask]))
-        
+         
     
         
             logits_gt =  logits_pos_gt*pos_mask + logits_neg_gt*neg_mask    
    
-            # loss_adjust_logit =  torch.abs((logits_gt-cls_score)* cdf_mask*(label.unsqueeze(1)!=255) )                    
-            # loss_adjust_logit = loss_adjust_logit.mean()
+    
             
             # adjust logit
             loss_adjust_logit =  (logits_gt-logits)* cdf_mask*(label.unsqueeze(1)!=255)                  
@@ -519,23 +504,20 @@ class CrossEntropyLoss_BLDA(nn.Module):
             source_mask = weight==1
             target_mask = (weight<1)&(weight>0)
             
-            # source_mask = weight>1
-            # target_mask = (weight<=1)&(weight>0)
+       
             
             logits = cls_score.detach().clone()
             gt = label.detach().clone()
             cdf = torch.zeros_like(logits,device=cls_score.device)   ## Store the cdf(cumulative distribution) corresponding to each logit
     
-            
-            # self.gmm_list.update_device(cls_score.device)
-            # self.pos_neg_gmm.update_device(cls_score.device)
+      
             self.gmm_list_target.update_device(cls_score.device)
             self.pos_neg_gmm_target.update_device(cls_score.device)
             
             
             label_onehot, weight_ = _expand_onehot_labels(label, None,  cls_score.shape,ignore_index = 255)
             
-            # # Count source pos 和 neg
+            # # Count source pos and neg
             flattened_logits = logits
             pos_mask = (label_onehot==1)
             neg_mask = (label_onehot==0)* (label!=255).unsqueeze(1)
